@@ -2,3 +2,4 @@ sonnet
 Pillow
 numpy
 scipy
+tensorflow
