@@ -3,3 +3,4 @@ Pillow
 numpy
 scipy
 tensorflow
+python-dateutil
