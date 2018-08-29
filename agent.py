@@ -86,9 +86,10 @@ class Agent():
                                 self.prev_rewards, self.prev_actions_onehot, self.timestep], 1)
             relational_cell = RelationalMemory(mem_slots=2048, head_size=12, num_heads=1, num_blocks=1,
                                                forget_bias=1.0, input_bias=0.0, gate_style='unit', attention_mlp_layers=2, key_size=None, name='relational_memory')
-            state_init = np.eye(relational_cell._mem_slots, dtype=np.float32)
-            state_init = state_init[np.newaxis, ...]
-            state_init = state_init[:, :, :relational_cell._mem_size]
+            state_init = relational_cell.initial_state(batch_size=1, trainable=False)
+            # state_init = np.eye(relational_cell._mem_slots, dtype=np.float32)
+            # state_init = state_init[np.newaxis, ...]
+            # state_init = state_init[:, :, :relational_cell._mem_size]
             self.state_init = state_init
             self.state_in = tf.placeholder(
                 tf.float32, shape=[1, relational_cell._mem_slots, relational_cell._mem_size])
@@ -195,7 +196,8 @@ class Worker():
 
         # Update the global network using gradients from loss
         # Generate network statistics to periodically save
-        rnn_state = self.local_AC.state_init
+        # rnn_state = self.local_AC.state_init
+        rnn_state = self.local_AC.state_out
         feed_dict = {self.local_AC.target_v: discounted_rewards,
                      self.local_AC.state: np.stack(states, axis=0),
                      self.local_AC.prev_rewards: np.vstack(prev_rewards),
@@ -230,7 +232,7 @@ class Worker():
                 a = 0
                 t = 0
                 s = self.env.reset()
-                rnn_state = self.local_AC.state_init
+                rnn_state = self.local_AC.state_out
 
                 while d == False:
                     # Take an action using probabilities from policy networks output.
