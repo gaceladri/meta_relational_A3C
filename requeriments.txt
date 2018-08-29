@@ -1,0 +1,4 @@
+sonnet
+Pillow
+numpy
+scipy
