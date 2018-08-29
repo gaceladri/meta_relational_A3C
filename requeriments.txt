@@ -1,4 +1,4 @@
-sonnet
+dm-sonnet
 Pillow
 numpy
 scipy
