@@ -186,9 +186,6 @@ class RelationalMemory(rnn_core.RNNCore):
 
     memory = tf.tanh(memory)
     inputs = basic.BatchFlatten()(inputs)
-    print('-'*100)
-    print(inputs)
-    print('-'*100)
     
     gate_inputs = basic.BatchApply(basic.Linear(num_gates), n_dims=1)(inputs)
     gate_inputs = tf.expand_dims(gate_inputs, axis=1)
@@ -198,8 +195,6 @@ class RelationalMemory(rnn_core.RNNCore):
 
     input_gate = tf.sigmoid(input_gate + self._input_bias)
     forget_gate = tf.sigmoid(forget_gate + self._forget_bias)
-    print(input_gate)
-    print(forget_gate)
 
     return input_gate, forget_gate
 

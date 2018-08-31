@@ -86,10 +86,10 @@ class Agent():
                                 self.prev_rewards, self.prev_actions_onehot, self.timestep], 1)
             relational_cell = RelationalMemory(mem_slots=2048, head_size=12, num_heads=1, num_blocks=1,
                                                forget_bias=1.0, input_bias=0.0, gate_style='unit', attention_mlp_layers=2, key_size=None, name='relational_memory')
-            state_init = relational_cell.initial_state(batch_size=1, trainable=False)
-            # state_init = np.eye(relational_cell._mem_slots, dtype=np.float32)
-            # state_init = state_init[np.newaxis, ...]
-            # state_init = state_init[:, :, :relational_cell._mem_size]
+            # state_init = relational_cell.initial_state(batch_size=1, trainable=False)
+            state_init = np.eye(relational_cell._mem_slots, dtype=np.float32)
+            state_init = state_init[np.newaxis, ...]
+            state_init = state_init[:, :, :relational_cell._mem_size]
             self.state_init = state_init
             self.state_in = tf.placeholder(
                 tf.float32, shape=[1, relational_cell._mem_slots, relational_cell._mem_size])
@@ -98,8 +98,11 @@ class Agent():
 
             output_sequence, cell_state = tf.nn.dynamic_rnn(
                 relational_cell, rnn_in, sequence_length=step_size, initial_state=self.state_init,
-                time_major=True)
+                time_major=False)
             self.state_out = cell_state
+            print('output_sequence.shape')
+            print(output_sequence.shape)
+            print('output_sequence.shape')
             rnn_out = tf.reshape(output_sequence, [-1, 12])
 
             self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
@@ -128,6 +131,8 @@ class Agent():
                     self.policy * self.actions_onehot, [1])
 
                 # Loss functions
+                print(tf.shape(self.value))
+                print('tf.shape(self.value)')
                 self.value_loss = 0.5 * \
                     tf.reduce_sum(tf.square(self.target_v -
                                             tf.reshape(self.value, [-1])))
@@ -197,7 +202,7 @@ class Worker():
         # Update the global network using gradients from loss
         # Generate network statistics to periodically save
         # rnn_state = self.local_AC.state_init
-        rnn_state = self.local_AC.state_out
+        rnn_state = self.local_AC.state_init
         feed_dict = {self.local_AC.target_v: discounted_rewards,
                      self.local_AC.state: np.stack(states, axis=0),
                      self.local_AC.prev_rewards: np.vstack(prev_rewards),
@@ -232,7 +237,7 @@ class Worker():
                 a = 0
                 t = 0
                 s = self.env.reset()
-                rnn_state = self.local_AC.state_out
+                rnn_state = self.local_AC.state_init
 
                 while d == False:
                     # Take an action using probabilities from policy networks output.
