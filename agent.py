@@ -100,9 +100,6 @@ class Agent():
                 relational_cell, rnn_in, sequence_length=step_size, initial_state=self.state_init,
                 time_major=False)
             self.state_out = cell_state
-            print('output_sequence.shape')
-            print(output_sequence.shape)
-            print('output_sequence.shape')
             rnn_out = tf.reshape(output_sequence, [-1, 12])
 
             self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
@@ -131,8 +128,6 @@ class Agent():
                     self.policy * self.actions_onehot, [1])
 
                 # Loss functions
-                print(tf.shape(self.value))
-                print('tf.shape(self.value)')
                 self.value_loss = 0.5 * \
                     tf.reduce_sum(tf.square(self.target_v -
                                             tf.reshape(self.value, [-1])))
@@ -170,7 +165,7 @@ class Worker():
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
-        self.summary_writer = tf.summary.FileWriter("train_"+str(self.number))
+        self.summary_writer = tf.summary.FileWriter("./save/"+logdir+"/train_"+str(self.number))
 
         # Create the local copy of the network and the tensorflow op to copy global parameters to local network
         self.local_AC = Agent(a_size, self.name, trainer)
