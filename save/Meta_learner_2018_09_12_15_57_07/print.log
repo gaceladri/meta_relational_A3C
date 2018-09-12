@@ -1,9 +1,0 @@
-input args:
- {
-    "save_dir":"./save\\Meta_learner_2018_09_12_15_57_07",
-    "load_params":false,
-    "save_interval":10,
-    "train":true,
-    "learning_rate":0.001
-}
-# of Parameters 376920
