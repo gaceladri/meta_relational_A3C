@@ -1,4 +1,5 @@
 import tensorflow as tf
+import sonnet as snt
 import numpy as np
 
 import scipy.signal
@@ -10,6 +11,7 @@ import multiprocessing
 
 from memory import RelationalMemory
 from PIL import Image, ImageDraw, ImageFont
+from helper import *
 
 
 def normalized_columns_initializer(std=1.0):
@@ -84,38 +86,50 @@ class Agent():
             # Recurrent network for temporal dependencies
             hidden = tf.concat([tf.layers.flatten(self.state),
                                 self.prev_rewards, self.prev_actions_onehot, self.timestep], 1)
-            relational_cell = RelationalMemory(mem_slots=2048, head_size=12, num_heads=1, num_blocks=1,
-                                               forget_bias=1.0, input_bias=0.0, gate_style='unit', attention_mlp_layers=2, key_size=None, name='relational_memory')
-            # state_init = relational_cell.initial_state(batch_size=1, trainable=False)
-            state_init = np.eye(relational_cell._mem_slots, dtype=np.float32)
-            state_init = state_init[np.newaxis, ...]
-            state_init = state_init[:, :, :relational_cell._mem_size]
-            self.state_init = state_init
-            self.state_in = tf.placeholder(
-                tf.float32, shape=[1, relational_cell._mem_slots, relational_cell._mem_size])
-            step_size = tf.shape(self.prev_rewards)[:1]
+            
+            core = RelationalMemory(
+                mem_slots=64,
+                head_size=12,
+                num_heads=1,
+                num_blocks=1,
+                gate_style='unit')
+
             rnn_in = tf.expand_dims(hidden, [0])
 
-            output_sequence, cell_state = tf.nn.dynamic_rnn(
-                relational_cell, rnn_in, sequence_length=step_size, initial_state=self.state_init,
-                time_major=False)
-            self.state_out = cell_state
-            rnn_out = tf.reshape(output_sequence, [-1, 12])
+            self.batch_size = rnn_in.get_shape()[0]
+
+            output, state = tf.nn.dynamic_rnn(
+                cell=core,
+                inputs=rnn_in,
+                time_major=False,
+                initial_state=core.initial_state(
+                    self.batch_size, trainable=False)
+                )
+
+            output = snt.BatchFlatten()(output[:, -1, :])
+            # state = snt.BatchFlatten()(state[:1, :])
+
+            state_init = np.eye(core._mem_slots, dtype=np.float32)
+            state_init = state_init[np.newaxis, ...]
+            state_init = np.array(state_init)
+            state_init = state_init[:, :, :core._mem_size]
+
+            self.state_init = state_init
+            self.state_in = tf.placeholder(tf.float32, [None, None])
+            self.state_out = state
 
             self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
             self.actions_onehot = tf.one_hot(
                 self.actions, a_size, dtype=tf.float32)
 
             # Output layer for policy and value estimations
-            self.policy = tf.contrib.layers.fully_connected(rnn_out, a_size,
+            self.policy = tf.contrib.layers.fully_connected(output, a_size,
                                                             activation_fn=tf.nn.softmax,
-                                                            weights_initializer=normalized_columns_initializer(
-                                                                0.01),
+                                                            weights_initializer=normalized_columns_initializer(0.01),
                                                             biases_initializer=None)
-            self.value = tf.contrib.layers.fully_connected(rnn_out, 1,
+            self.value = tf.contrib.layers.fully_connected(output, 1,
                                                            activation_fn=None,
-                                                           weights_initializer=normalized_columns_initializer(
-                                                               1.0),
+                                                           weights_initializer=normalized_columns_initializer(1.0),
                                                            biases_initializer=None)
 
             # Only the worker network need ops for loss functions and gradient updating.
@@ -196,8 +210,7 @@ class Worker():
 
         # Update the global network using gradients from loss
         # Generate network statistics to periodically save
-        # rnn_state = self.local_AC.state_init
-        rnn_state = self.local_AC.state_init
+        rnn_state = np.array(self.local_AC.state_init)
         feed_dict = {self.local_AC.target_v: discounted_rewards,
                      self.local_AC.state: np.stack(states, axis=0),
                      self.local_AC.prev_rewards: np.vstack(prev_rewards),
@@ -205,7 +218,8 @@ class Worker():
                      self.local_AC.actions: actions,
                      self.local_AC.timestep: np.vstack(timesteps),
                      self.local_AC.advantages: advantages,
-                     self.local_AC.state_in: rnn_state}
+                     self.local_AC.state_in: rnn_state[0]}
+
         v_l, p_l, e_l, g_n, v_n, _ = sess.run([self.local_AC.value_loss,
                                                self.local_AC.policy_loss,
                                                self.local_AC.entropy,
@@ -232,7 +246,7 @@ class Worker():
                 a = 0
                 t = 0
                 s = self.env.reset()
-                rnn_state = self.local_AC.state_init
+                rnn_state = np.array(self.local_AC.state_init)
 
                 while d == False:
                     # Take an action using probabilities from policy networks output.
@@ -242,7 +256,7 @@ class Worker():
                         self.local_AC.prev_rewards: [[r]],
                         self.local_AC.timestep: [[t]],
                         self.local_AC.prev_actions: [a],
-                        self.local_AC.state_in: rnn_state})
+                        self.local_AC.state_in: rnn_state[0]})
                     a = np.random.choice(a_dist[0], p=a_dist[0])
                     a = np.argmax(a_dist == a)
 
@@ -250,6 +264,7 @@ class Worker():
                     s1, r, d, t = self.env.pullArm(a)
                     episode_buffer.append([s, a, r, t, d, v[0, 0]])
                     episode_values.append([v[0, 0]])
+                    episode_frames.append(set_image_context(self.env.true,s,episode_reward,a,t))
                     episode_reward += r
                     total_steps += 1
                     episode_step_count += 1
@@ -270,6 +285,11 @@ class Worker():
                         saver.save(sess, self.model_path+'/model' +
                                    str(episode_count) + '.cptk')
                         print("Saved model")
+
+                    if episode_count % 40 == 0 and self.name == 'worker_0':
+                        self.images = np.array(episode_frames)
+                        make_gif(self.images,'./frames/image'+str(episode_count)+'.gif',
+                            duration=len(self.images)*0.1,true_image=True)
 
                     mean_reward = np.mean(self.episode_rewards[-10:])
                     mean_length = np.mean(self.episode_lengths[-10:])
