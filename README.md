@@ -1,13 +1,15 @@
-# Meta-Relational-A3C
+# Meta Relational A3C
 Meta Learner A3C Algorithm with a Neural Relational Memory Module
 
-(Work in progress)
+## Results
 
 
-To install the dependencies run
+## Usage
+
+To install the dependencies run:
 
 > pip install -r requeriments.txt 
 
-To run the algorithm run
+To run the algorithm:
 
 > python agent.py
