@@ -17,4 +17,5 @@ To run the algorithm:
 ### References
 
 [1] Original A3C algorithm taken from https://github.com/awjuliani Arthur Juliani repo.
+
 [2] "Relational Recurrent Neural Networks", Santoro et al., 2018.
