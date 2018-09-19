@@ -12,8 +12,8 @@ import multiprocessing
 from memory import RelationalMemory
 from PIL import Image, ImageDraw, ImageFont
 from helper import *
-import sys
-sys.path.append('/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/')
+
+PATH='/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/'
 
 def normalized_columns_initializer(std=1.0):
     def _initializer(shape, dtype=None, partition_info=None):
@@ -87,7 +87,7 @@ class Agent():
             # Recurrent network for temporal dependencies
             hidden = tf.concat([tf.layers.flatten(self.state),
                                 self.prev_rewards, self.prev_actions_onehot, self.timestep], 1)
-            
+
             core = RelationalMemory(
                 mem_slots=64,
                 head_size=12,
@@ -105,7 +105,7 @@ class Agent():
                 time_major=False,
                 initial_state=core.initial_state(
                     self.batch_size, trainable=False)
-                )
+            )
 
             output = snt.BatchFlatten()(output[:, -1, :])
             # state = snt.BatchFlatten()(state[:1, :])
@@ -126,11 +126,13 @@ class Agent():
             # Output layer for policy and value estimations
             self.policy = tf.contrib.layers.fully_connected(output, a_size,
                                                             activation_fn=tf.nn.softmax,
-                                                            weights_initializer=normalized_columns_initializer(0.01),
+                                                            weights_initializer=normalized_columns_initializer(
+                                                                0.01),
                                                             biases_initializer=None)
             self.value = tf.contrib.layers.fully_connected(output, 1,
                                                            activation_fn=None,
-                                                           weights_initializer=normalized_columns_initializer(1.0),
+                                                           weights_initializer=normalized_columns_initializer(
+                                                               1.0),
                                                            biases_initializer=None)
 
             # Only the worker network need ops for loss functions and gradient updating.
@@ -180,7 +182,7 @@ class Worker():
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
-        self.summary_writer = tf.summary.FileWriter("./save/"+logdir+"/train_"+str(self.number))
+        self.summary_writer = tf.summary.FileWriter(PATH +"save/"+logdir+"/train_"+str(self.number))
 
         # Create the local copy of the network and the tensorflow op to copy global parameters to local network
         self.local_AC = Agent(a_size, self.name, trainer)
@@ -265,7 +267,8 @@ class Worker():
                     s1, r, d, t = self.env.pullArm(a)
                     episode_buffer.append([s, a, r, t, d, v[0, 0]])
                     episode_values.append([v[0, 0]])
-                    episode_frames.append(set_image_context(self.env.true,s,episode_reward,a,t))
+                    episode_frames.append(set_image_context(
+                        self.env.true, s, episode_reward, a, t))
                     episode_reward += r
                     total_steps += 1
                     episode_step_count += 1
@@ -287,10 +290,10 @@ class Worker():
                                    str(episode_count) + '.cptk')
                         print("Saved model")
 
-                    if episode_count % 40 == 0 and self.name == 'worker_0':
+                    if episode_count % 10 == 0 and self.name == 'worker_0':
                         self.images = np.array(episode_frames)
-                        make_gif(self.images,'/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/frames/image'+str(episode_count)+'.gif',
-                            duration=len(self.images)*0.1,true_image=True)
+                        make_gif(self.images, PATH + 'frames/image'+str(episode_count)+'.gif', 
+                                 duration=len(self.images)*0.1, true_image=True)
 
                     mean_reward = np.mean(self.episode_rewards[-10:])
                     mean_length = np.mean(self.episode_lengths[-10:])
@@ -305,11 +308,12 @@ class Worker():
                         summary.scalar('Losses/Entropy', e_l)
                         summary.scalar('Losses/Grad Norm', g_n)
                         summary.scalar('Losses/Var Norm', v_n)
-                    # self.summary_writer.add_summary(summary, episode_count)
+                    # self.summary_writer.add_summary(summary, episode_count)   # A current issue is happening with tensorboard add_summary function.
 
                     self.summary_writer.flush()
                 if self.name == 'worker_0':
-                    print(episode_count)
+                    print('episode: '+ str(episode_count))
+                    
                     sess.run(self.increment)
                 episode_count += 1
 
@@ -321,8 +325,8 @@ def main(args):
         os.makedirs(args.save_dir)
         f_log = open(os.path.join(args.save_dir, 'print.log'), 'w')
 
-    if not os.path.exists('/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/frames'):
-        os.makedirs('/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/frames')
+    if not os.path.exists(PATH + 'frames'):   
+        os.makedirs(PATH + 'frames') 
 
     def lprint(*a, **kw):
         print(*a, **kw)
@@ -337,14 +341,16 @@ def main(args):
     load_model = args.load_params
 
     with tf.device("/cpu:0"):
-        global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
+        global_episodes = tf.Variable(
+            0, dtype=tf.int32, name='global_episodes', trainable=False)
         trainer = tf.train.AdamOptimizer(learning_rate=1e-3)
         master_network = Agent(a_size, 'global', None)
         num_workers = multiprocessing.cpu_count()
         workers = []
         # Create worker classes
         for i in range(num_workers):
-            workers.append(Worker(contextual_bandit(),i,a_size,trainer,args.save_dir,global_episodes))
+            workers.append(Worker(contextual_bandit(), i, a_size,
+                                  trainer, args.save_dir, global_episodes))
         saver = tf.train.Saver(max_to_keep=5)
 
     with tf.Session() as sess:
@@ -362,7 +368,7 @@ def main(args):
 
         worker_threads = []
         for worker in workers:
-            worker_work = lambda: worker.work(gamma,sess,coord,saver,train)
+            def worker_work(): return worker.work(gamma, sess, coord, saver, train)
             thread = threading.Thread(target=(worker_work))
             thread.start()
             worker_threads.append(thread)
@@ -379,7 +385,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # data I/O
-    parser.add_argument('-o', '--save_dir', type=str, default='/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/save',
+    parser.add_argument('-o', '--save_dir', type=str, default=PATH + 'save',   
                         help='Location for parameter checkpoints and samples')
     parser.add_argument('-t', '--save_interval', type=int, default=10,
                         help='Every how many epochs to write checkpoint/samples?')

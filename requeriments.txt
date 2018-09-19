@@ -5,3 +5,4 @@ scipy
 tensorflow
 python-dateutil
 moviepy
+requests
