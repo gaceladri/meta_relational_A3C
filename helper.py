@@ -1,6 +1,10 @@
 import numpy as np
 import scipy
 from PIL import Image, ImageDraw, ImageFont
+import sys
+sys.path.append('/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C')
+
+print(sys.path)
 
 def set_image_context(correct, observation,values,selection,trial):
     obs = observation * 225.0
@@ -10,9 +14,9 @@ def set_image_context(correct, observation,values,selection,trial):
     obs_a = scipy.misc.imresize(obs_a,[100,100],interp='nearest')
     obs_b = scipy.misc.imresize(obs_b,[100,100],interp='nearest')
     cor = scipy.misc.imresize(cor,[100,100],interp='nearest')
-    bandit_image = Image.open('./resources/c_bandit.png')
+    bandit_image = Image.open('/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/resources/c_bandit.png')
     draw = ImageDraw.Draw(bandit_image)
-    font = ImageFont.truetype("./resources/FreeSans.ttf", 24)
+    font = ImageFont.truetype("/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/resources/FreeSans.ttf", 24)
     draw.text((50, 360),'Trial: ' + str(trial),(0,0,0),font=font)
     draw.text((50, 330),'Reward: ' + str(values),(0,0,0),font=font)
     bandit_image = np.array(bandit_image)

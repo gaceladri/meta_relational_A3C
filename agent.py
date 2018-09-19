@@ -12,7 +12,8 @@ import multiprocessing
 from memory import RelationalMemory
 from PIL import Image, ImageDraw, ImageFont
 from helper import *
-
+import sys
+sys.path.append('/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/')
 
 def normalized_columns_initializer(std=1.0):
     def _initializer(shape, dtype=None, partition_info=None):
@@ -171,7 +172,7 @@ class Agent():
 
 class Worker():
     def __init__(self, game, name, a_size, trainer, model_path, global_episodes):
-        self.name = "worker" + str(name)
+        self.name = "worker_" + str(name)
         self.number = name
         self.model_path = model_path
         self.global_episodes = global_episodes
@@ -280,15 +281,15 @@ class Worker():
                         episode_buffer, sess, gamma, 0.0)
 
                 # Periodically save gifts of episodes, model parameters, and summary statistics.
-                if episode_count % 20 == 0 and episode_count != 0:
-                    if episode_count % 500 == 0 and self.name == 'worker_0' and train == True and len(self.episode_rewards) != 0:
+                if episode_count % 10 == 0 and episode_count != 0:
+                    if episode_count % 10 == 0 and self.name == 'worker_0' and train == True and len(self.episode_rewards) != 0:
                         saver.save(sess, self.model_path+'/model' +
                                    str(episode_count) + '.cptk')
                         print("Saved model")
 
                     if episode_count % 40 == 0 and self.name == 'worker_0':
                         self.images = np.array(episode_frames)
-                        make_gif(self.images,'./frames/image'+str(episode_count)+'.gif',
+                        make_gif(self.images,'/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/frames/image'+str(episode_count)+'.gif',
                             duration=len(self.images)*0.1,true_image=True)
 
                     mean_reward = np.mean(self.episode_rewards[-10:])
@@ -304,10 +305,11 @@ class Worker():
                         summary.scalar('Losses/Entropy', e_l)
                         summary.scalar('Losses/Grad Norm', g_n)
                         summary.scalar('Losses/Var Norm', v_n)
-                    self.summary_writer.add_summary(summary, episode_count)
+                    # self.summary_writer.add_summary(summary, episode_count)
 
                     self.summary_writer.flush()
                 if self.name == 'worker_0':
+                    print(episode_count)
                     sess.run(self.increment)
                 episode_count += 1
 
@@ -318,6 +320,9 @@ def main(args):
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
         f_log = open(os.path.join(args.save_dir, 'print.log'), 'w')
+
+    if not os.path.exists('/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/frames'):
+        os.makedirs('/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/frames')
 
     def lprint(*a, **kw):
         print(*a, **kw)
@@ -332,17 +337,15 @@ def main(args):
     load_model = args.load_params
 
     with tf.device("/cpu:0"):
-        global_episodes = tf.Variable(
-            0, dtype=tf.int32, name='global_episodes', trainable=False)
+        global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
         trainer = tf.train.AdamOptimizer(learning_rate=1e-3)
         master_network = Agent(a_size, 'global', None)
         num_workers = multiprocessing.cpu_count()
         workers = []
         # Create worker classes
         for i in range(num_workers):
-            workers.append(Worker(contextual_bandit(), i, a_size,
-                                  trainer, args.save_dir, global_episodes))
-        saver = tf.train.Saver(max_to_keep=1)
+            workers.append(Worker(contextual_bandit(),i,a_size,trainer,args.save_dir,global_episodes))
+        saver = tf.train.Saver(max_to_keep=5)
 
     with tf.Session() as sess:
         coord = tf.train.Coordinator()
@@ -359,7 +362,7 @@ def main(args):
 
         worker_threads = []
         for worker in workers:
-            def worker_work(): return worker.work(gamma, sess, coord, saver, train)
+            worker_work = lambda: worker.work(gamma,sess,coord,saver,train)
             thread = threading.Thread(target=(worker_work))
             thread.start()
             worker_threads.append(thread)
@@ -376,7 +379,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # data I/O
-    parser.add_argument('-o', '--save_dir', type=str, default='./save',
+    parser.add_argument('-o', '--save_dir', type=str, default='/media/proto/E490-E3B6/IA/Reinforcement/ABN_Robotics/surfer/meinemashine/Meta-Relational-A3C/save',
                         help='Location for parameter checkpoints and samples')
     parser.add_argument('-t', '--save_interval', type=int, default=10,
                         help='Every how many epochs to write checkpoint/samples?')
