@@ -2,7 +2,7 @@
 Meta Learner A3C Algorithm with a Neural Relational Memory Module
 
 ## Results
-<src image='./frames/image1320.gif'>
+<src image='/frames/image1320.gif'>
 
 ## Usage
 
