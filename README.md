@@ -1,5 +1,5 @@
 # Meta relational asynchronous actor critic (A3C)
-Meta A3C learner algorithm with a neural relational memory module. It's currently solving a very simple contextual bandits problem. Further experimentation with some other problems are expected in a near future.
+Meta learner A3C algorithm with a neural relational memory module. It's currently solving a very simple contextual bandits problem. Further experimentation with some other problems are expected in a near future.
 
 ## Results
 <image src='./frames/image1320.gif'>
